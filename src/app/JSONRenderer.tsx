@@ -3,23 +3,33 @@ type JSONRendererProps = {
 }
 
 const JSONRenderer = ({ jsonData }: JSONRendererProps) => {
+    // console.log('jj', jsonData)
+
     const renderValue = (key: string, value: unknown, isLast: boolean) => {
         const cleanKey = key.replace(/^(\+\+|--|==)/, '')
         const hint = key.startsWith('++') ? 'new Item' : key.startsWith('--') ? 'removed Item' : ''
         const keyStyle = key.startsWith('++')
-            ? { backgroundColor: '#bdffbd' }
+            ? { backgroundColor: 'lightgreen' }
             : key.startsWith('--')
-              ? { backgroundColor: '#ffb9b9' }
+              ? { backgroundColor: 'lightcoral' }
               : {}
 
+        //in case is normall child of array
+        console.log('000')
+
         if (typeof value == 'object' && value) {
+            console.log('111')
+
             if ('status' in value && 'value' in value && 'index' in value) {
+                console.log('222')
+
                 if (value.status === 'Added' || value.status === 'Deleted' || value.status === 'UnChanged') {
+                    console.log(value, 'is')
                     const keyStyle =
                         value.status === 'Added'
-                            ? { backgroundColor: '#bdffbd' }
+                            ? { backgroundColor: 'lightgreen' }
                             : value.status === 'Deleted'
-                              ? { backgroundColor: '#ffb9b9' }
+                              ? { backgroundColor: 'lightcoral' }
                               : {}
 
                     const style =

@@ -1,24 +1,51 @@
-type TJSObjectType = 'object' | 'array' | 'null' | 'date'
+export type TJSObjectType = 'object' | 'array' | 'null' | 'date'
 
-type TJSNonObjectType = 'string' | 'number' | 'bigint' | 'boolean' | 'undefined' | 'function' | 'symbol'
+export type TJSNonObjectType = 'string' | 'number' | 'bigint' | 'boolean' | 'undefined' | 'function' | 'symbol'
 
-type TJsonType = Record<string, unknown> | Record<string, unknown>[]
+export type TJsonType = Record<string, unknown> | Record<string, unknown>[]
 
-type TObjectType = Record<string, unknown>
+export type TObjectType = Record<string, unknown>
 
-type TArrayType = unknown[]
+export type TArrayType = unknown[]
 
-type TStatusType = 'Added' | 'Deleted' | 'UnChanged' | 'Unknown' | 'UnknownObj'
+export type TStatusType = 'Added' | 'Deleted' | 'UnChanged' | 'Unknown' | 'UnknownObj'
 
-const getVariableObjectType = (variable: object): TJSObjectType => {
+export const getVariableObjectType = (variable: object): TJSObjectType => {
     if (variable instanceof Date) return 'date'
     else if (variable === null) return 'null'
     else if (Array.isArray(variable)) return 'array'
     return 'object'
 }
 
-const getVariableDataType = (variable: unknown): TJSObjectType | TJSNonObjectType =>
+export const getVariableDataType = (variable: unknown): TJSObjectType | TJSNonObjectType =>
     typeof variable !== 'object' ? typeof variable : getVariableObjectType(variable as object)
+
+export const jsonVisualizer = (oldJsonVersion: TJsonType, newJsonVersion: TJsonType) => {
+    const oldJsonVersionType = getVariableDataType(oldJsonVersion) as 'object' | 'array'
+    const newJsonVersionType = getVariableDataType(newJsonVersion) as 'object' | 'array'
+
+    if (oldJsonVersionType !== newJsonVersionType) {
+        // It means newJsonVersion get old one's place
+        return newJsonVersion
+    } else {
+        // both json has the same type ~> array or object
+        if (newJsonVersionType === 'object') {
+            // Do not needs to check both
+            const oldJson = oldJsonVersion as TObjectType
+            const newJson = newJsonVersion as TObjectType
+
+            return objectVisualizer(oldJson, newJson)
+        } else {
+            // both are arrays
+            const oldJson = oldJsonVersion as TArrayType
+            const newJson = newJsonVersion as TArrayType
+
+            return arrayVisualizer(oldJson, newJson)
+        }
+    }
+}
+
+//
 
 const objectVisualizer = (oldObjectVersion: TObjectType, newObjectVersion: TObjectType): TObjectType => {
     const merged: TObjectType = {}
@@ -30,47 +57,53 @@ const objectVisualizer = (oldObjectVersion: TObjectType, newObjectVersion: TObje
     for (const key of allKeys) {
         const oldValue = oldObjectVersion[key]
         const newValue = newObjectVersion[key]
+        const oldValueType = getVariableDataType(oldValue)
+        const newValueType = getVariableDataType(newValue)
         if (!oldKeys.includes(key)) {
             // key added to the newObjectVersion
-            merged[`++${key}`] = newValue
+            merged[`++${key}`] = `%${newValueType}%` + newValue
         } else if (!newKeys.includes(key)) {
             // key removed from the newObjectVersion
-            merged[`--${key}`] = oldValue
+            merged[`--${key}`] = `%${oldValueType}%` + oldValue
         } else {
             // key exists in both objects, should check the types & values of them
-            const oldValueType = getVariableDataType(oldValue)
-            const newValueType = getVariableDataType(newValue)
+
             if (oldValueType !== newValueType) {
                 // the values does not have the same type, it means new one takes the old one's place
-                merged[`--${key}`] = oldValue
-                merged[`++${key}`] = newValue
+                if (oldValueType != 'object') merged[`--${key}`] = `%${oldValueType}%` + oldValue
+                else merged[`--${key}`] = oldValue
+                if (newValueType != 'object') merged[`++${key}`] = `%${newValueType}%` + newValue
+                else merged[`++${key}`] = newValue
             } else {
                 // both values has the same type, so we can declare the type like this :
                 const valuesType = newValueType // its the same as oldValueType
                 if (['undefined', 'null'].includes(valuesType)) {
-                    const value = newValue as undefined | null // since the types are equal, its the same as oldValue
+                    const value = '%null%' + newValue // since the types are equal, its the same as oldValue
                     merged[`==${key}`] = value
                 } else if (['string', 'number', 'bigint', 'boolean'].includes(valuesType)) {
                     const oldValueWithType = oldValue as string | number | bigint | boolean
                     const newValueWithType = newValue as string | number | bigint | boolean
                     if (oldValueWithType !== newValueWithType) {
                         // the values are not equal. since both of them has the same type, it means new one takes the old one's place
-                        merged[`--${key}`] = oldValue
-                        merged[`++${key}`] = newValue
+                        merged[`--${key}`] = `%${oldValueType}%` + oldValue
+                        merged[`++${key}`] = `%${newValueType}%` + newValue
+
+                        // merged[`--${key}`] = oldValue
+                        // merged[`++${key}`] = newValue
                     } else {
                         // the values are equal, its the same as oldValue
-                        merged[`==${key}`] = newValue
+                        merged[`==${key}`] = `%${newValueType}%` + newValue
                     }
                 } else if (valuesType === 'date') {
                     const oldValueWithType = oldValue as Date
                     const newValueWithType = newValue as Date
                     if (oldValueWithType.getTime() !== newValueWithType.getTime()) {
                         // the values are not equal, it means new one takes the old one's place
-                        merged[`--${key}`] = oldValue
-                        merged[`++${key}`] = newValue
+                        merged[`--${key}`] = `%${valuesType}%` + oldValue
+                        merged[`++${key}`] = `%${valuesType}%` + newValue
                     } else {
                         // the values are equal, its the same as oldValue
-                        merged[`==${key}`] = newValue
+                        merged[`==${key}`] = `%${valuesType}%` + newValue
                     }
                 } else if (valuesType === 'array') {
                     const oldValueWithType = oldValue as TArrayType
@@ -86,6 +119,7 @@ const objectVisualizer = (oldObjectVersion: TObjectType, newObjectVersion: TObje
                     // It means the type is neither function or symbol
                     if (JSON.stringify(oldValue) !== JSON.stringify(newValue)) {
                         // the values are not equal, it means new one takes the old one's place
+
                         merged[`--${key}`] = oldValue
                         merged[`++${key}`] = newValue
                     } else {
@@ -286,38 +320,4 @@ const arrayVisualizer = (oldArrayVersion: TArrayType, newArrayVersion: TArrayTyp
     }
 
     return merged
-}
-
-export const jsonVisualizer = (oldJsonVersion: TJsonType, newJsonVersion: TJsonType) => {
-    const oldJsonVersionType = getVariableDataType(oldJsonVersion) as 'object' | 'array'
-    const newJsonVersionType = getVariableDataType(newJsonVersion) as 'object' | 'array'
-
-    if (oldJsonVersionType !== newJsonVersionType) {
-        // It means newJsonVersion get old one's place
-        return newJsonVersion
-    } else {
-        // both json has the same type ~> array or object
-        if (newJsonVersionType === 'object') {
-            // Do not needs to check both
-            const oldJson = oldJsonVersion as TObjectType
-            const newJson = newJsonVersion as TObjectType
-
-            return objectVisualizer(oldJson, newJson)
-        } else {
-            // both are arrays
-            const oldJson = oldJsonVersion as TArrayType
-            const newJson = newJsonVersion as TArrayType
-
-            return arrayVisualizer(oldJson, newJson)
-        }
-    }
-}
-
-export const isValidJSON = (str: string) => {
-    try {
-        JSON.parse(str)
-        return true
-    } catch (e) {
-        return false
-    }
 }
